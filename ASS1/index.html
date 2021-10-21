@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" type="text/css" href="styles/main.css">
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v4.js"></script>
+
+    <title>US States by GDP</title>
+
+  </head>
+  <body>
+    <h1>Top 10 U.S states with the highest GDP in 2021</h1>
+
+    <!-- setting up the plot in this div -->
+    <div id="plot"></div>
+    <script>
+
+
+    // set the dimensions and margins of the graph
+    const margin = 100,
+        width = 1000 - 2 * margin,
+        height = 600 - 2 * margin;
+
+    // creating svg
+    let svg = d3.select("#plot")
+      .append("svg")
+        .attr("width", 1000)
+        .attr("height", 600)
+      .append("g")
+        .attr("transform",
+              "translate(" + margin + "," + margin+ ")");
+
+    // loading data and plotting the graph
+    d3.csv("./data/usa_nominal_gdp_top10_2021.csv", function(data) {
+
+    // X axis
+    const x = d3.scaleBand()
+      .range([ 0, width])
+      .domain(data.map(function(d) { return d.State; }))
+      .padding(0.05);
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(x))
+
+
+    // Add Y axis
+    const y = d3.scaleLinear()
+      .domain([0, 3500000])
+      .range([ height, 0]);
+    svg.append("g")
+      .call(d3.axisLeft(y));
+
+    // Bars
+    svg.selectAll("bar")
+      .data(data)
+      .enter()
+      .append("rect")
+        .attr("x", function(d) { return x(d.State); })
+        .attr("y", function(d) { return y(d.GDP); })
+        .attr("width", x.bandwidth())
+        .attr("height", function(d) { return height - y(d.GDP); })
+        .attr("fill", "#4C89B8")
+
+      //grids
+      svg.append("g")
+        .attr("class", "grid")
+        .call(d3.axisLeft()
+        .scale(y)
+        .tickSize(-width, 0, 0)
+        .tickFormat(""))
+        .style("stroke-dasharray", "1 6")
+
+    })
+
+    //add y label
+    svg.append("text")
+    .text("Nominal GDP")
+    .attr("y",-80)
+    .attr("x",-height/2)
+    .attr("transform", "rotate(-90)")
+    .style("font-weight","bold")
+    .append('tspan')
+    .text("(in millions of $)")
+    .attr("dy",15)
+    .attr("x",-height/2)
+
+
+    //add x label
+    svg.append("text")
+    .text("States")
+    .attr("y",height+50)
+    .attr("x",width/2)
+    .style("font-weight","bold")
+
+    </script>
+  </body>
+</html>
+
+
+<!-- This sources were used as learning material in addition to the course material:
+https://www.d3-graph-gallery.com/graph/barplot_basic.html
+https://blog.risingstack.com/d3-js-tutorial-bar-charts-with-javascript/-->
