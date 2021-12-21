@@ -1,4 +1,4 @@
-Some Visualization Projects using Vue.js and D3
+Some Interactive Visualization Projects using Vue.js and D3
 
 results:
 
