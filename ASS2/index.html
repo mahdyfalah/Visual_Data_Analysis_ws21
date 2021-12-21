@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" type="text/css" href="main.css">
+    <!-- Load d3.js -->
+    <script src="d3.min.js"></script>
+    <title>Data Visualisation Assignment 2</title>
+</head>
+
+<body>
+    <h1>YEARLY NOMINAL GDP PER STATE IN THE USA</h1>
+    <!-- Creating the SVG-->
+    <svg width="1200" height="1200" id="plot"></svg>
+    <script>
+    let svg = d3.select("#plot")
+    let diagram = svg.append("g").attr("id", "diagram")
+
+    // Loading the Data
+    d3.csv("usa_nominal_gdp_1997-2020.csv")
+        .then(function(data) {
+            // used to store the data in a format that can ve plotted
+            const dataset = []
+            // stores the data of each state
+            const stateData = []
+
+            // convets string to time
+            const timeConverter = d3.timeParse("%Y");
+
+            data.forEach((d, i) => {
+                stateData.state = d.State;
+                stateData.anualGDP = []
+
+                for (const j in d) {
+                    stateData.anualGDP.push({ year: timeConverter(j), gdp: +d[j] })
+                }
+                // delete the last entry which is state name
+                stateData.anualGDP.pop()
+                dataset.push({ state: stateData.state, anualGDP: stateData.anualGDP })
+            });
+
+            // X axis:
+            let scaleX = d3.scaleTime()
+                .domain([new Date(1997, 0, 1), new Date(2020, 0, 1)])
+                .range([0, 900]);
+            let axisX = d3.axisBottom().tickFormat(d3.timeFormat("%Y"));
+            axisX.scale(scaleX)
+            let axis = diagram.append("g").call(axisX)
+                .attr("transform", "translate(150,520)")
+
+            // X axis Brush:
+            diagram.append("g").call(axisX)
+                .attr("transform", "translate(150,740)")
+
+
+            // Y Axis :
+            const maxGDP = d3.max(dataset, function(d) {
+                return d3.max(d.anualGDP, function(d) {
+                    return d.gdp;
+                });
+            });
+
+            let scaleY = d3.scaleLinear()
+                .domain([0, maxGDP])
+                .range([500, 0]);
+            let axisY = d3.axisLeft().tickFormat(function(d) { return d / 1000000 + " M" }).ticks(8);
+
+            axisY.scale(scaleY)
+            diagram.append("g").call(axisY)
+                .attr("transform", "translate(150,20)")
+
+            // Y axis Brush:
+            let scaleYbrush = d3.scaleLinear()
+                .domain([0, maxGDP])
+                .range([150, 0]);
+
+            axisY.scale(scaleYbrush)
+            diagram.append("g").call(axisY)
+                .attr("transform", "translate(150,590)")
+
+
+            // Brush : 
+            let brush = d3.brushX()
+                .extent([
+                    [150, 589],
+                    [1050, 740]
+                ])
+                .on("end", updateChart)
+
+            d3.select("#diagram")
+                .append("g")
+                .attr("class", "brush")
+                .call(brush)
+
+            // Plot the lines:
+            for (const i in dataset) {
+                // graph lines:
+                diagram.selectAll("lines")
+                    .data([dataset[i].anualGDP])
+                    .enter()
+                    .append("path")
+                    .attr("fill", "none")
+                    .attr("stroke", "grey")
+                    .attr("stroke-width", 1.5)
+                    .attr("transform", "translate(150,20)")
+                    .attr("class", "line")
+                    .attr("clip-path", "url(#clip)")
+                    .attr("d", d3.line()
+                        .x(function(d) { return scaleX(d.year) })
+                        .y(function(d) { return scaleY(d.gdp) })
+                    )
+                    .on("mouseover", (event) => showName(event, dataset[i]))
+                    .on("mouseout", showNameEnd)
+                    .on("click", (event) => highligt(event, dataset[i]));
+
+                // brush lines:
+                diagram.selectAll("lines")
+                    .data([dataset[i].anualGDP])
+                    .enter()
+                    .append("path")
+                    .attr("fill", "none")
+                    .attr("stroke", "lightgrey")
+                    .attr("stroke-width", 1.5)
+                    .attr("transform", "translate(150,590)")
+                    .attr("d", d3.line()
+                        .x(function(d) { return scaleX(d.year) })
+                        .y(function(d) { return scaleYbrush(d.gdp) })
+                    )
+            }
+
+            //add x label
+            svg.append("text")
+                .text("Years")
+                .attr("x", 550)
+                .attr("y", 570)
+                .style("font-weight", "bold")
+
+            //add y labels
+            svg.append("text")
+                .text("Nominal GDP")
+                .attr("x", 10)
+                .attr("y", 220)
+                .style("font-weight", "bold")
+                .append('tspan')
+                .text("(in millions of $)")
+                .attr("dy", 15)
+                .attr("x", 0)
+
+            svg.append("text")
+                .text("Brushable Area")
+                .attr("x", 10)
+                .attr("y", 650)
+
+
+            // Interaction:
+            function showName(event, d) {
+                svg.append("text")
+                    .text(d.state)
+                    .attr("x", scaleX(d.anualGDP[23].year))
+                    .attr("y", scaleY(d.anualGDP[21].gdp))
+                    .attr("id", "stateName")
+            }
+
+            function showNameEnd(event) {
+                d3.select("#stateName").remove();
+            }
+
+            function highligt(event, d) {
+                d3.select(event.currentTarget)
+                    .attr("stroke", "orange")
+                    .attr("stroke-width", 2.5)
+
+                svg.append("text")
+                    .text(d.state)
+                    .attr("x", scaleX(d.anualGDP[23].year))
+                    .attr("y", scaleY(d.anualGDP[21].gdp))
+                    .attr("id", "click")
+            }
+
+            // Brushing Function:
+            // A function that set idleTimeOut to null
+            let idleTimeout
+
+            function idled() { idleTimeout = null; }
+
+            function updateChart(event) {
+                let extent = event.selection
+
+                if (!extent) {
+                    if (!idleTimeout) return idleTimeout = setTimeout(idled, 350);
+                    scaleX.domain([new Date(1997, 0, 1), new Date(2020, 0, 1)])
+                } else {
+                    scaleX.domain([scaleX.invert(extent[0]), scaleX.invert(extent[1])])
+                    diagram.select(".brush").call(brush.move, null)
+                }
+
+
+                // axis.call(axisX)
+                axis.transition().duration(1000).call(axisX)
+                d3.select("#plot").selectAll(".line")
+                    .transition().duration(1000)
+                    .attr("d", d3.line()
+                        .x(function(d) { return scaleX(d.year) })
+                        .y(function(d) { return scaleY(d.gdp) })
+                    )
+            }
+
+            // Clip Path
+            var holder = d3.select("body")
+                .append("svg")
+                .attr("width", 1000)
+                .attr("height", 1200);
+
+            holder.append("clipPath")
+                .attr("id", "clip")
+                .append("rect")
+                .attr("width", 900)
+                .attr("height", 1000);
+
+
+
+
+        })
+    </script>
+</body>
+
+</html>
+<!-- sources outside of course material:
+  1. To correct year format on the X-Axis:
+  https://stackoverflow.com/questions/39649525/how-do-i-generate-axis-tick-for-every-year-in-d3
+
+  2. To find max of 2d array:
+  https://stackoverflow.com/questions/31249419/how-to-find-max-value-from-a-2d-matrix-using-d3-js
+
+  3. To change tickformat on the Y-Axis to millions:
+  https://stackoverflow.com/questions/39981780/d3-js-format-axis-uniformly-in-millions
+
+  4. To pass parameter to on.mouseover:
+  https://stackoverflow.com/questions/10000083/javascript-event-handler-with-parameters
+
+  5. To highlight the line on click:
+  https://newbedev.com/d3-js-change-color-and-size-on-line-graph-dot-on-mouseover
+
+  6. To prevent the lines from clipping the diagram:
+  https://bl.ocks.org/35degrees/02e5fd2eade71c0a6ffc01d5282def23
+ -->
